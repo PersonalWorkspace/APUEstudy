@@ -3,18 +3,11 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <errno.h>
-
+#include "proctools.h"
+#include "memtools.h"
 #define BUFFERSIZE 255
-int findcommandindex(char *buf,int size)
-{
-	int i;
-	for(i=0;i<size&&buf[i]!='\0';i++)
-	{
-		if(buf[i]==' '||buf[i]=='\t')
-			break;
-	}
-	return i;
-}
+#define MAX_ARGVS 100
+#define MAX_ARGV 255
 int main(int argc,char **argv)
 {
 	//if(argc<=1)
@@ -27,6 +20,7 @@ int main(int argc,char **argv)
 	int status;
 	int commandindex;
 	char command[255];
+	char **argvs;
 	char errorlog[4096];
 	printf("%%");
 	while(fgets(buf,BUFFERSIZE,stdin)!=NULL)
@@ -40,12 +34,22 @@ int main(int argc,char **argv)
 		}
 		else if(pid==0)
 		{
-			commandindex=findcommandindex(buf,BUFFERSIZE);
-			strncpy(command,buf,commandindex+1);
-			command[commandindex]='\0';
-			execlp(command,buf,(char *)0);
+			int argvnum;
+			argvnum=procArgvNum(buf,BUFFERSIZE);
+			if((argvs=charArrAlloc(argvnum+1,MAX_ARGV))==NULL)
+          		{
+                  		return 1;
+         		}
+			//printf("argvnum:%d\n",argvnum);
+			procArgvArr(buf,BUFFERSIZE,argvs,argvnum);
+			//stringtoarray(buf,BUFFERSIZE,argvs,argvnum,MAX_ARGV,'\n');
+			//argvs[argvnum][0]='\0';
+			//printfstrarr(argvs,argvnum);
+			execvp(argvs[0],argvs);
+			//execlp(command,buf,(char *)0);
 			snprintf(errorlog,4096,"%s",strerror(errno));
 			fprintf(stderr,"%s\n",errorlog);
+			freeArr((void**)argvs,argvnum);
 			return errno;
 		}
 		else
