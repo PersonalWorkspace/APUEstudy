@@ -8,6 +8,11 @@
 #define BUFFERSIZE 255
 #define MAX_ARGVS 100
 #define MAX_ARGV 255
+//ctrl z SIGSTOP
+static void sig_init(int);
+static void sig_stop(int);
+int childpid;
+int curfdPid=-1;
 int main(int argc,char **argv)
 {
 	//if(argc<=1)
@@ -23,10 +28,25 @@ int main(int argc,char **argv)
 	char **argvs;
 	char errorlog[4096];
 	printf("%%");
+	if(signal(SIGINT,sig_init)==SIG_ERR)
+        {
+		fprintf(stderr,"%s\n",strerror(errno));
+		return 1;
+        }
+	if(signal(SIGTSTP,sig_stop)==SIG_ERR)
+        {
+		fprintf(stderr,"sigstop :%s\n",strerror(errno));
+		return 1;
+        }
 	while(fgets(buf,BUFFERSIZE,stdin)!=NULL)
 	{
 		if(buf[strlen(buf)-1]=='\n')
 			buf[strlen(buf)-1]=0;
+		if(strcmp(buf,"exit")==0)
+                {
+                        return 0;
+                }
+		curfdPid=-1;
 		if((pid=fork())<0)
 		{
 			snprintf(errorlog,4096,"%s",strerror(errno));
@@ -59,8 +79,21 @@ int main(int argc,char **argv)
 				snprintf(errorlog,4096,"%s",strerror(errno));
 				fprintf(stderr,"%s\n",errorlog);
 			}
+			curfdPid=pid;
 		}
 		printf("%%");
 	}
 	return 0;
+}
+void sig_init(int signo)
+{
+        printf("\n");
+}
+void sig_stop(int signo)
+{
+	if(curfdPid>=0)
+	{
+		 kill(curfdPid,SIGTSTP);
+	}
+        printf("\n");
 }
